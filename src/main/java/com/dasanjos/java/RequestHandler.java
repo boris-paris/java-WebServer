@@ -12,14 +12,15 @@ import com.dasanjos.java.http.HttpResponse;
  */
 public class RequestHandler implements Runnable {
 
-	private static Logger log = Logger.getLogger(RequestHandler.class);
+	private static final Logger log = Logger.getLogger(RequestHandler.class);
 
-	private Socket socket;
+	private final Socket socket;
 
 	public RequestHandler(Socket socket) {
 		this.socket = socket;
 	}
 
+        @Override
 	public void run() {
 		try {
 			HttpRequest req = new HttpRequest(socket.getInputStream());
