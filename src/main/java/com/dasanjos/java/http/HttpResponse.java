@@ -45,58 +45,10 @@ public class HttpResponse {
             case GET:
                 try {
                     File file = new File("." + req.uri);
-                  
-                    /*
-                    http://www.w3.org/Protocols/rfc2616/rfc2616-sec14.html
-                    
-                    If none of the entity tags match, or if "*" is given and no 
-                    current entity exists, the server MUST NOT perform the 
-                    requested method, and MUST return a 412 
-                    (Precondition Failed) response.
-                    */
-                    if (!req.ifMatch(CacheUtils.generateETag(file)) || 
-                            (req.isIfMatchWildcard() && !file.exists())) {
-                        fillHeaders(Status._412);
-                        break;
-                    }
-                    /*
-                    http://www.w3.org/Protocols/rfc2616/rfc2616-sec14.html
-                    
-                    The If-Modified-Since request-header field is used with a 
-                    method to make it conditional: if the requested variant has 
-                    not been modified since the time specified in this field, an 
-                    entity will not be returned from the server; instead, a 304 
-                    (not modified) response will be returned without any message-body.                    
-                    */
-                    if (!req.ifModifiedSince(CacheUtils.generateLastModified(file))) {
-                        fillHeaders(Status._304);
-                        break;
-                    }
-                    /*
-                    http://www.w3.org/Protocols/rfc2616/rfc2616-sec14.html
-                    
-                    If any of the entity tags match the entity tag of the entity 
-                    that would have been returned in the response to a similar 
-                    GET request (without the If-None-Match header) on that 
-                    resource, or if "*" is given and any current entity exists 
-                    for that resource, then the server MUST NOT perform the 
-                    requested method, unless required to do so because the 
-                    resource's modification date fails to match that supplied 
-                    in an If-Modified-Since header field in the request. 
-                    Instead, if the request method was GET or HEAD, the server 
-                    SHOULD respond with a 304 (Not Modified) response, including 
-                    the cache- related header fields (particularly ETag) of one 
-                    of the entities that matched.
-                    */
-                    if (req.ifNoneMatch(CacheUtils.generateETag(file)) ||
-                            (req.isIfNoneMatchWildcard() && file.exists())) {
-                        fillHeaders(Status._304);
-                        headers.add("ETag: " + CacheUtils.generateETag(file));
-                    }
 
-                    fillHeaders(Status._200);
                     // TODO fix dir bug http://localhost:8080/src/test                    
                     if (file.isDirectory()) {
+                        fillHeaders(Status._200);
                         headers.add(ContentType.HTML.toString());
                         StringBuilder result = new StringBuilder("<html><head><title>Index of ");
                         result.append(req.uri);
@@ -113,6 +65,55 @@ public class HttpResponse {
 
                         fillResponse(result.toString());
                     } else if (file.exists()) {
+                        /*
+                        http://www.w3.org/Protocols/rfc2616/rfc2616-sec14.html
+
+                        If none of the entity tags match, or if "*" is given and no 
+                        current entity exists, the server MUST NOT perform the 
+                        requested method, and MUST return a 412 
+                        (Precondition Failed) response.
+                         */
+                        if (!req.ifMatch(CacheUtils.generateETag(file))
+                                || (req.isIfMatchWildcard() && !file.exists())) {
+                            fillHeaders(Status._412);
+                            break;
+                        }
+                        /*
+                        http://www.w3.org/Protocols/rfc2616/rfc2616-sec14.html
+
+                        The If-Modified-Since request-header field is used with a 
+                        method to make it conditional: if the requested variant has 
+                        not been modified since the time specified in this field, an 
+                        entity will not be returned from the server; instead, a 304 
+                        (not modified) response will be returned without any message-body.                    
+                         */
+                        if (!req.ifModifiedSince(CacheUtils.generateLastModified(file))) {
+                            fillHeaders(Status._304);
+                            break;
+                        }
+                        /*
+                        http://www.w3.org/Protocols/rfc2616/rfc2616-sec14.html
+
+                        If any of the entity tags match the entity tag of the entity 
+                        that would have been returned in the response to a similar 
+                        GET request (without the If-None-Match header) on that 
+                        resource, or if "*" is given and any current entity exists 
+                        for that resource, then the server MUST NOT perform the 
+                        requested method, unless required to do so because the 
+                        resource's modification date fails to match that supplied 
+                        in an If-Modified-Since header field in the request. 
+                        Instead, if the request method was GET or HEAD, the server 
+                        SHOULD respond with a 304 (Not Modified) response, including 
+                        the cache- related header fields (particularly ETag) of one 
+                        of the entities that matched.
+                         */
+                        if (req.ifNoneMatch(CacheUtils.generateETag(file))
+                                || (req.isIfNoneMatchWildcard() && file.exists())) {
+                            fillHeaders(Status._304);
+                            headers.add("ETag: " + CacheUtils.generateETag(file));
+                        }
+                        
+                        fillHeaders(Status._200);
                         // @boris paris: Add headers for Last-Modified, and ETag
                         headers.add("Last-Modified: " + CacheUtils.generateLastModified(file));
                         headers.add("ETag: " + CacheUtils.generateETag(file));

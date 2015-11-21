@@ -1,11 +1,9 @@
 package com.dasanjos.java.http;
 
-import com.sun.javafx.scene.control.behavior.CellBehaviorBase;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.net.Socket;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -102,7 +100,7 @@ public class HttpRequest {
         if (hasIfModifiedSince()) {
             return getIfModifiedSince().equals(date);
         }
-        return false;
+        return true;
     }
 
     /*
@@ -120,7 +118,7 @@ public class HttpRequest {
         if (hasIfMatch()) {
             return getIfMatch().contains(tag);
         }
-        return false;
+        return true;
     }
     
     public boolean isIfMatchWildcard() {
@@ -153,5 +151,23 @@ public class HttpRequest {
            return getHeaderValue("If-None-Match").equals("*");
        }
        return false;
+    }
+    
+    /*
+        Keep-Alive
+    */
+    public boolean isKeepAlive() {
+        // Assume a persistent connection unless the client sends a close-token
+        if (version.equals("HTTP/1.1")) {
+            return !(hasHeader("Connection") &&
+                    getHeaderValue("Connection").toLowerCase().equals("close"));
+        }
+        // To keep persistent connections in HTTP 1.0 there has to be a
+        // keep-alive-token in the request.
+        else if (version.equals("HTTP/1.0")) {
+           return hasHeader("Connection") &&
+                   getHeaderValue("Connection").toLowerCase().equals("keep-alive");
+        }
+        return false;
     }
 }

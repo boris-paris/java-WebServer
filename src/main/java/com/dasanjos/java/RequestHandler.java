@@ -8,27 +8,32 @@ import com.dasanjos.java.http.HttpRequest;
 import com.dasanjos.java.http.HttpResponse;
 
 /**
- * Class <code>RequestHandler</code> - Thread class that answer the requests in the socket
+ * Class <code>RequestHandler</code> - Thread class that answer the requests in
+ * the socket
  */
 public class RequestHandler implements Runnable {
 
-	private static final Logger log = Logger.getLogger(RequestHandler.class);
+    private static final Logger log = Logger.getLogger(RequestHandler.class);
 
-	private final Socket socket;
+    private final Socket socket;
 
-	public RequestHandler(Socket socket) {
-		this.socket = socket;
-	}
+    public RequestHandler(Socket socket) {
+        this.socket = socket;
+    }
 
-        @Override
-	public void run() {
-		try {
-			HttpRequest req = new HttpRequest(socket.getInputStream());
-			HttpResponse res = new HttpResponse(req);
-			res.write(socket.getOutputStream());
-			socket.close();
-		} catch (Exception e) {
-			log.error("Runtime Error", e);
-		}
-	}
+    @Override
+    public void run() {
+        try {
+            HttpRequest req = new HttpRequest(socket.getInputStream());
+            HttpResponse res = new HttpResponse(req);
+            res.write(socket.getOutputStream());
+            if (req.isKeepAlive()) {
+                socket.setSoTimeout(5000);
+            } else {
+                socket.close();
+            }
+        } catch (Exception e) {
+            log.error("Runtime Error", e);
+        }
+    }
 }
