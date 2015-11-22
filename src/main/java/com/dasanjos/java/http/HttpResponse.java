@@ -62,6 +62,7 @@ public class HttpResponse {
                         fillResponse(result.toString());
                     } else if (file.exists()) {
                         /*
+                        @boris paris:
                         http://www.w3.org/Protocols/rfc2616/rfc2616-sec14.html
 
                         If none of the entity tags match, or if "*" is given and no 
@@ -75,6 +76,7 @@ public class HttpResponse {
                             break;
                         }
                         /*
+                        @boris paris:
                         http://www.w3.org/Protocols/rfc2616/rfc2616-sec14.html
 
                         The If-Modified-Since request-header field is used with a 
@@ -88,6 +90,8 @@ public class HttpResponse {
                             break;
                         }
                         /*
+                        @boris paris:
+                        
                         http://www.w3.org/Protocols/rfc2616/rfc2616-sec14.html
 
                         If any of the entity tags match the entity tag of the entity 
@@ -107,6 +111,7 @@ public class HttpResponse {
                                 || (req.isIfNoneMatchWildcard() && file.exists())) {
                             fillHeaders(Status._304);
                             headers.add("ETag: " + CacheUtils.generateETag(file));
+                            break;
                         }
                         
                         fillHeaders(Status._200);
@@ -126,11 +131,6 @@ public class HttpResponse {
                     fillResponse(Status._400.toString());
                 }
 
-                break;
-            case POST:
-                if (req.uri.contains("/create")) {
-                    
-                }
                 break;
             case UNRECOGNIZED:
                 fillHeaders(Status._400);

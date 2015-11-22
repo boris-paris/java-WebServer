@@ -18,7 +18,7 @@ This software is released under FreeBSD license.
 RUNNING
 =======
 
-The Java Web Server runs on any Operational System with Java (JRE) 1.6+ installed 
+The Java Web Server runs on any Operational System with Java (JRE) 1.8+ installed 
 
 To start the Java Web Server, download the application jar file and run the following command:
 
@@ -35,7 +35,7 @@ Step 1 - Install Requirements
 -----------------------------
 To download and compile the source code you need to install: 
 
-- Java SDK v1.6+
+- Java SDK v1.8+
 - Maven v2.0+
 - Git v1.7+
 
@@ -43,7 +43,7 @@ Step 2 - Get the source code
 ----------------------------
 Download the project source code from GitHub repository (https://github.com/dasanjos/java-WebServer) 
 
-    $ git clone git://github.com/dasanjos/java-WebServer
+    $ git clone git://github.com/boris-paris/java-WebServer
 
 This will create a folder "java-WebServer" containing the project source files. 
 

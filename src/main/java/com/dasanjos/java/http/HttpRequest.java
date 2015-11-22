@@ -20,6 +20,8 @@ public class HttpRequest {
 
     List<String> headers = new ArrayList<>();
     
+    String body;
+    
     String rootPath;
 
     Method method;
@@ -37,6 +39,18 @@ public class HttpRequest {
         while (!str.equals("")) {
             str = reader.readLine();
             parseRequestHeader(str);
+        }
+        
+        // @boris paris:
+        // If the request was a POST request check for a body and read it.
+        if (method.equals(Method.POST)) {
+            StringBuilder builder = new StringBuilder();
+            do {
+                str = reader.readLine();
+                log.info(str);
+                builder.append(str);
+            } while(!str.equals(""));
+            body = builder.toString();
         }
     }
 

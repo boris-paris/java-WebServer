@@ -35,8 +35,8 @@ public class CacheUtils {
 
     /**
      * Generates an md5 hash that can be used as an ETag. The hash generation
-     * only takes the file conten into account. While this slows down the
-     * generation of the hash compared to using the Inode, it enables the ETag
+     * only takes the file content into account. While this slows down the
+     * generation of the hash compared to using the inode, it enables the ETag
      * to work in distributed environments.
      *
      * @param file the file to generate an ETag hash for

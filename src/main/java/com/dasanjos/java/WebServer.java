@@ -98,6 +98,8 @@ public class WebServer {
 
         ServerSocket theServer = serverChannel.socket();
         theServer.bind(new InetSocketAddress(8020));
+        
+        log.info("Server started!");
 
         final Selector selector = Selector.open();
         serverChannel.register(selector, SelectionKey.OP_ACCEPT);
