@@ -6,17 +6,9 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.math.BigInteger;
-import java.nio.file.Files;
-import java.security.DigestInputStream;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
-import java.time.LocalDateTime;
-import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
-import java.util.Date;
 import java.util.List;
 
 import org.apache.log4j.Logger;
@@ -28,11 +20,11 @@ import paris.boris.java.http.util.CacheUtils;
  */
 public class HttpResponse {
 
-    private static Logger log = Logger.getLogger(HttpResponse.class);
+    private static final Logger LOG = Logger.getLogger(HttpResponse.class);
 
     public static final String VERSION = "HTTP/1.0";
 
-    List<String> headers = new ArrayList<String>();
+    List<String> headers = new ArrayList<>();
 
     byte[] body;
 
@@ -59,7 +51,11 @@ public class HttpResponse {
                         // TODO add Parent Directory
                         File[] files = file.listFiles();
                         for (File subfile : files) {
-                            result.append(" <a href=\"" + subfile.getPath() + "\">" + subfile.getPath() + "</a>\n");
+                            result.append(" <a href=\"")
+                                    .append(subfile.getPath())
+                                    .append("\">")
+                                    .append(subfile.getPath())
+                                    .append("</a>\n");
                         }
                         result.append("<hr></pre></body></html>");
 
@@ -120,16 +116,19 @@ public class HttpResponse {
                         setContentType(req.uri, headers);
                         fillResponse(getBytes(file));
                     } else {
-                        log.info("File not found:" + req.uri);
+                        LOG.info("File not found:" + req.uri);
                         fillHeaders(Status._404);
                         fillResponse(Status._404.toString());
                     }
                 } catch (Exception e) {
-                    log.error("Response Error", e);
+                    LOG.error("Response Error", e);
                     fillHeaders(Status._400);
                     fillResponse(Status._400.toString());
                 }
 
+                break;
+            case POST:
+                
                 break;
             case UNRECOGNIZED:
                 fillHeaders(Status._400);
@@ -145,13 +144,14 @@ public class HttpResponse {
     private byte[] getBytes(File file) throws IOException {
         int length = (int) file.length();
         byte[] array = new byte[length];
-        InputStream in = new FileInputStream(file);
-        int offset = 0;
-        while (offset < length) {
-            int count = in.read(array, offset, (length - offset));
-            offset += count;
+        // @boris paris: 'in' wasnt closed properly after usage
+        try (InputStream in = new FileInputStream(file)) {
+            int offset = 0;
+            while (offset < length) {
+                int count = in.read(array, offset, (length - offset));
+                offset += count;
+            }
         }
-        in.close();
         return array;
     }
 
@@ -190,7 +190,7 @@ public class HttpResponse {
             String ext = uri.substring(uri.indexOf(".") + 1);
             list.add(ContentType.valueOf(ext.toUpperCase()).toString());
         } catch (Exception e) {
-            log.error("ContentType not found: " + e, e);
+            LOG.error("ContentType not found: " + e, e);
         }
     }
 }
