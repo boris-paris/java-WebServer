@@ -36,7 +36,7 @@ public class HttpResponse {
                 break;
             case GET:
                 try {
-                    File file = new File("." + req.uri);
+                    File file = new File(req.rootPath + req.uri);
 
                     // TODO fix dir bug http://localhost:8080/src/test                    
                     if (file.isDirectory()) {
@@ -128,7 +128,9 @@ public class HttpResponse {
 
                 break;
             case POST:
-                
+                if (req.uri.contains("/create")) {
+                    
+                }
                 break;
             case UNRECOGNIZED:
                 fillHeaders(Status._400);

@@ -19,6 +19,8 @@ public class HttpRequest {
     private static Logger log = Logger.getLogger(HttpRequest.class);
 
     List<String> headers = new ArrayList<>();
+    
+    String rootPath;
 
     Method method;
 
@@ -26,10 +28,11 @@ public class HttpRequest {
 
     String version;
 
-    public HttpRequest(InputStream is) throws IOException {
+    public HttpRequest(InputStream is, String rootPath) throws IOException {
         BufferedReader reader = new BufferedReader(new InputStreamReader(is));
         String str = reader.readLine();
         parseRequestLine(str);
+        this.rootPath = rootPath;
 
         while (!str.equals("")) {
             str = reader.readLine();

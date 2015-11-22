@@ -1,58 +1,167 @@
 package com.dasanjos.java;
 
+import java.io.File;
 import java.io.IOException;
+import java.net.InetSocketAddress;
 import java.net.ServerSocket;
+import java.net.Socket;
+import java.nio.channels.SelectionKey;
+import java.nio.channels.Selector;
+import java.nio.channels.ServerSocketChannel;
+import java.nio.channels.SocketChannel;
+import java.util.Set;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorCompletionService;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 
 import org.apache.log4j.Logger;
 
 /**
- * Class <code>WebServer</code> - Main class that starts the Web Server Thread Pool in port 8080 (default)
+ * https://github.com/jrudolph/Pooling-web-server/blob/master/src/main/java/virtualvoid/net/NioPooledWebServer.java
  * 
- * @boris paris: Changed thread pooling from fixed threads to cached. Let the
- * jvm handle the threads seems more efficient to me.
+ * Only modified to fit into the existing code.
+ * 
+ * Original comment:
+ * 
+ * A pooling web server using NIO and selection for keep-alive handling.
+ * The main thread selects both on waiting for accepting new connections as well as for new data arriving
+ * on old connections in which cases it schedules the connections for processing on the pool.
+ * The main idea is that connections with keep-alive are handed back to the main thread after
+ * processing one request. That frees the processing thread for other tasks.
+ *
+ * The complexities here arise from several problems with Java's NIO API. First, only the thread
+ * holding the selector should operate on it. This means we have to monitor the threads from the
+ * pool for finished but keep-alive connections and register them with the selector. Second,
+ * there's a bug in NIO, which makes Selector.select return even if no channels are selected when
+ * before a connection was closed in the wrong moment. The workaround is to cancel the selection
+ * every time and reregister it with the selector.
+ * (see http://bugs.sun.com/bugdatabase/view_bug.do?bug_id=6403933)
+ *
+ * Third, we have to manage timeouts ourselves. We do this by running over the list of connections
+ * each x seconds and check if the timestamp in the attachment is older than the configured timeout,
+ * in which case the connection is closed.
  */
-public class WebServer extends Thread {
+public class WebServer {
 
-	private static Logger log = Logger.getLogger(WebServer.class);
+    private static Logger log = Logger.getLogger(WebServer.class);
 
-	private static final int DEFAULT_PORT = 8080;
+    private final ExecutorService executor = Executors.newFixedThreadPool(2);
+    private final ExecutorCompletionService<SocketChannel> keepAliveChannels = new ExecutorCompletionService<SocketChannel>(executor);
 
-	public static void main(String args[]) {
-		try {
-			new WebServer().start(getValidPortParam(args));
-		} catch (Exception e) {
-			log.error("Startup Error", e);
-		}
-	}
+    /**
+     * Check the pool for completion of one or more of its task and in case it's
+     * keep-alive register the connection with the selector.
+     */
+    private void registerKeepAliveChannels(Selector selector) throws IOException, InterruptedException {
+        long now = System.currentTimeMillis();
+        Future<SocketChannel> alive;
+        while ((alive = keepAliveChannels.poll()) != null) {
+            try {
+                SocketChannel channel = alive.get();
+                if (channel != null) {
+                    channel.configureBlocking(false);
+                    channel.register(selector, SelectionKey.OP_READ, now);
+                }
+            } catch (ExecutionException e) {
+                e.printStackTrace();
+            }
+        }
+    }
 
-	public void start(int port) throws IOException {
-		ServerSocket s = new ServerSocket(port);
-		System.out.println("Web server listening on port " + port + " (press CTRL-C to quit)");
-		ExecutorService executor = Executors.newCachedThreadPool();
-		while (true) {
-			executor.submit(new RequestHandler(s.accept()));
-		}
-	}
+    /**
+     * Each x seconds check all registrations if they have timed-out in which
+     * case the corresponding channel is closed.
+     */
+    private long cleanupKeepAliveChannels(long lastCleanup, Set<SelectionKey> keys) throws IOException {
+        long now = System.currentTimeMillis();
+        if (now - lastCleanup > 5000) {
+            System.err.println("Cleaning up keep-alive connections. " + keys.size());
+            for (SelectionKey key : keys) {
+                if ((key.interestOps() & SelectionKey.OP_READ) != 0
+                        && ((Long) key.attachment()) + 20000 < now) {
+                    System.out.println("Closing connection to " + key.channel());
+                    key.channel().close();
+                }
+            }
+            return now;
+        } else {
+            return lastCleanup;
+        }
+    }
 
-	/**
-	 * Parse command line arguments (string[] args) for valid port number
-	 * 
-         * @boris paris: Changed port numbers from 0-65335 to 1024-65535, since
-         * ports from 0-1023 are reserved.
-         * 
-	 * @return int valid port number or default value (8080)
-	 */
-	static int getValidPortParam(String args[]) throws NumberFormatException {
-		if (args.length > 0) {
-			int port = Integer.parseInt(args[0]);
-			if (port > 1023 && port < 65535) {
-				return port;
-			} else {
-				throw new NumberFormatException("Invalid port! Port value is a number between 1024 and 65535");
-			}
-		}
-		return DEFAULT_PORT;
-	}
+    public void run() throws IOException, InterruptedException {
+        ServerSocketChannel serverChannel = ServerSocketChannel.open();
+        serverChannel.configureBlocking(false);
+
+        ServerSocket theServer = serverChannel.socket();
+        theServer.bind(new InetSocketAddress(8020));
+
+        final Selector selector = Selector.open();
+        serverChannel.register(selector, SelectionKey.OP_ACCEPT);
+
+        long lastCleanup = System.currentTimeMillis();
+        while (true) {
+            registerKeepAliveChannels(selector);
+            lastCleanup = cleanupKeepAliveChannels(lastCleanup, selector.keys());
+
+            if (selector.select(10) == 0) {
+                continue;
+            }
+
+            for (SelectionKey key : selector.selectedKeys()) {
+                if (key.isAcceptable()) {
+                    // we take it for granted that only the server channel is
+                    // registered for acception.
+                    SocketChannel clientChannel = serverChannel.accept();
+                    clientChannel.configureBlocking(true);
+                    schedule(clientChannel);
+
+                    // workaround: cancel the key and reregister it later on
+                    // see http://bugs.sun.com/bugdatabase/view_bug.do?bug_id=6403933
+                    key.cancel();
+                } else if (key.isReadable()) {
+                    SocketChannel clientChannel = (SocketChannel) key.channel();
+
+                    // cancel the registration, we go back into blocking mode
+                    // and let the processing be done inside of an own thread
+                    key.cancel();
+                    clientChannel.configureBlocking(true);
+                    log.info(String.format("Reusing channel %s", clientChannel));
+                    schedule(clientChannel);
+                }
+            }
+
+            selector.selectNow();
+            serverChannel.register(selector, SelectionKey.OP_ACCEPT);
+        }
+    }
+
+    private void schedule(final SocketChannel clientChannel) {
+        keepAliveChannels.submit(new Callable<SocketChannel>() {
+            @Override
+            public SocketChannel call() throws Exception {
+                Socket client = clientChannel.socket();
+                boolean keepAlive = new RequestHandler().handleConnection(client, rootPath);
+                if (keepAlive) {
+                    return clientChannel;
+                }
+                if (!client.isClosed()) {
+                    client.close();
+                }
+
+                return null;
+            }
+        });
+    }
+
+    public static void main(String[] args) throws Exception {
+        if (args.length > 0) {
+            rootPath = args[0];
+        }
+        new WebServer().run();
+    }
+    private static String rootPath = ".";
 }
